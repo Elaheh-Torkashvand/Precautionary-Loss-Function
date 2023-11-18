@@ -1,0 +1,62 @@
+
+
+
+
+for(f in 1:100){
+
+
+
+  setwd(paste("/afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/"))
+  dir.create(paste("SL-", f, sep=""))
+  setwd(paste("/afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/SL-",f,sep=""))
+
+
+sink("run.sh")
+cat(paste("#!/bin/bash
+
+
+
+
+
+
+module load R gcc
+
+  ",sep=""))
+
+
+cat(paste("fsync ${HOME}/Private/scale-loss-function/Scale-Loss-Function-March-2020/SL-",f,"/res-SLF.txt &", sep=""))
+
+
+
+cat(paste("
+
+fsync $SGE_STDOUT_PATH &
+
+
+#SBATCH --workdir=cd /afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/SL-",f, sep=""))
+
+
+cat(paste("
+
+
+
+R --vanilla < SLF.R &> res-SLF.txt
+
+
+
+
+
+
+
+date        
+                    ",sep=""))
+
+
+
+sink()
+
+}
+
+warnings()  
+    
+

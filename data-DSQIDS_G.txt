@@ -1,0 +1,40 @@
+
+
+
+library(foreign)
+
+
+
+
+mydata <- read.xport("/afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/Program-Generator/DSQIDS_G.XPT")
+
+
+
+
+
+
+for (f in 1:100){
+
+ 
+file.folder = paste("/afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/SL-",f,"/DSQIDS_G.csv", sep="")
+
+
+
+write.csv(mydata, file = file.folder, row.names = FALSE)
+
+
+
+
+
+}
+
+warnings()  
+    
+
+
+ 
+file.folder = paste("/afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/DSQIDS_G.csv", sep="")
+
+
+write.csv(mydata, file = file.folder, row.names = FALSE)
+

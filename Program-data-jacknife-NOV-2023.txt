@@ -1,0 +1,2461 @@
+
+
+for (f in 1:100){
+
+  setwd(paste("/afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/"))
+
+  dir.create(paste("SL-", f, sep=""))
+
+  setwd(paste("/afs/crc.nd.edu/user/e/etorkash/Private/scale-loss-function/Scale-Loss-Function-March-2020/SL-",f,sep=""))
+
+sink("SLF.R")
+
+cat(paste("
+
+remove(list=ls())
+
+
+
+##########    Jun 6, 2016
+library(\"xtable\")
+
+
+",sep=""))
+
+
+cat(paste("R=",sep=""))
+cat(f*1)
+
+
+cat(paste("
+s1=",sep=""))
+cat((f-1)*1)
+
+cat(paste("
+begin=",sep=""))
+cat((f-1)*100+1)
+
+cat(paste("
+end=",sep=""))
+cat((f)*100)
+
+
+
+cat(paste("
+
+
+
+
+set.seed(35)
+
+
+
+
+##################################  Revised Functions  ##################################
+
+##############################################
+##############################################
+
+
+gamma_i<-function(sample.variance, area.variance){
+	
+	t<-sample.variance/(sample.variance+area.variance)
+	
+	# t<-matrix(t) ####  it is a m by 1 matrix.
+	
+	return(t)
+	
+}
+
+
+beta.hat.area.variance<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	m<-length(sample.variance)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	beta<-solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix) %*% sigma.matrix.inv %*% response 
+	
+	return(beta)
+	
+}
+
+
+phi.hat.HB.area.variance<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	m<-length(sample.variance)
+	
+	t<-gamma_i(sample.variance, area.variance)
+	
+	gamma<-t
+	
+	one.minus.gamma<-1-t
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	h<- one.minus.gamma * response + gamma * covariate.matrix %*% beta
+	
+	# h<-diag(h)
+	
+	return(h)
+	
+	
+}
+
+
+
+
+k<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	####  I am writing the code for the case that each row of the covariate matrix gives the auxilary information of the corresponding area.
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	gamma<-diag(t.gamma, m, m)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	t<-diag(diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix) ), nrow=m, ncol=m)
+	
+	k.values <- diag(as.vector(area.variance * t.gamma), m, m)+ gamma^2 %*% t
+	
+	k.values <- diag(k.values)
+
+        return(k.values)
+	
+}
+
+
+theta.hat.HB.area.variance<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	phi <- phi.hat.HB.area.variance(covariate.matrix, sample.variance, area.variance, response)
+
+    k.values <- k(covariate.matrix, sample.variance, area.variance, response)
+	
+	h <- exp(phi + k.values)
+	
+	return(h)
+	
+	
+}
+
+
+
+
+theta.hat.HB.area.variance.sel <- function(covariate.matrix, sample.variance, area.variance, response){
+	
+	phi <- phi.hat.HB.area.variance(covariate.matrix, sample.variance, area.variance, response)
+
+	
+	h <- exp( phi )
+	
+	return(h)
+	
+	
+}
+
+
+theta.hat.HB.area.variance.kl <- function(covariate.matrix, sample.variance, area.variance, response){
+	
+	phi <- phi.hat.HB.area.variance(covariate.matrix, sample.variance, area.variance, response)
+
+    k.values <- k(covariate.matrix, sample.variance, area.variance, response)
+	
+	h <- exp(phi + 0.5*k.values)
+	
+	return(h)
+	
+	
+}
+
+
+
+
+
+d.X.prime.sigma.inverse.X<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	m<-length(sample.variance)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	t<-solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% (t(covariate.matrix) %*% sigma.matrix.inv^2 %*% covariate.matrix) %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix)
+	
+	return(t)
+	
+	
+}
+
+
+d.2.X.prime.sigma.inverse.X<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	
+	first.derivitive<-d.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	t<-first.derivitive %*% (t(covariate.matrix) %*% sigma.matrix.inv^2 %*% covariate.matrix) %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) -2*solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% (t(covariate.matrix) %*% sigma.matrix.inv^3 %*% covariate.matrix) %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix)+ solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% (t(covariate.matrix) %*% sigma.matrix.inv^2 %*% covariate.matrix) %*% first.derivitive
+	
+	return(t)   
+	
+	
+}
+
+
+g.1.f<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	gamma<-diag(t.gamma, m, m)
+	
+	g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	t<-NULL
+	
+	for(i in 1: m){
+		
+		t[i]<-2*(exp(k.var[i]/2)-1)*exp(k.var[i]/2)*exp(((1-t.gamma[i])^2/2)*(sample.variance[i]+area.variance-g[i]))*exp(covariate.matrix[i, ] %*% beta +g[i]/2) 
+		
+		
+	}
+	
+	return(t)	
+	
+	
+}
+
+
+k.prime.i<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	gamma<-diag(t.gamma, m, m)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	first.derivitive<-d.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+
+    # t<-t.gamma^2+2*diag(gamma %*% covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix)) + t.gamma^2*diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix) %*% sigma.matrix.inv^2   %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix)  %*% t(covariate.matrix))  
+    
+    # t<-t.gamma^2+2*diag(gamma %*% covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix)) +diag(gamma^2 %*% covariate.matrix %*% first.derivitive %*% t(covariate.matrix))  
+    
+   t<-t.gamma^2-2*(t.gamma^3/sample.variance)*diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))+t.gamma^2*diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix))
+    
+    return(t)		
+	
+}
+
+
+d.g.1.f<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	gamma<-diag(t.gamma, m, m)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	first.derivitive<-d.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+	
+	t<-NULL
+
+   
+    	
+    	t<-k.prime * exp(k.var) * exp( ((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) *exp(covariate.matrix %*% beta +g/2) +2*(exp(k.var/2)-1) * (k.prime/2) * exp(k.var/2)* exp(((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) * exp(covariate.matrix %*% beta +g/2) +2*(exp(k.var/2)-1) * exp(k.var/2) *((1-t.gamma)*(t.gamma)^2/sample.variance* (sample.variance+area.variance-g) + (1-t.gamma)^2/2*(1- diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix)) ))*exp(((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) * exp(covariate.matrix %*% beta +g/2) + 2* (exp(k.var/2)-1)*exp(k.var/2)* exp(((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) * 0.5* diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix))*exp(covariate.matrix %*% beta +g/2) 
+    		
+
+    return(t)
+	
+	
+	
+}
+
+
+k.2.prime<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+
+    g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+    
+    first.derivitive<-d.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+    
+    second.derivative<-d.2.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+	
+	t<--2*t.gamma^3/sample.variance+6*t.gamma^4/sample.variance^2*g-4*t.gamma^3/sample.variance*diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix))+t.gamma^2* diag(covariate.matrix %*% second.derivative %*% t(covariate.matrix))
+	
+	return(t)
+		
+	
+}
+
+
+d.2.g.1.f<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	k.d.prime<-k.2.prime(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	gamma<-diag(t.gamma, m, m)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	first.derivitive<-d.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+	
+	second.derivative<-d.2.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+	
+	first.derivitive.g<-diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix))
+	
+	second.derivative.g<-diag(covariate.matrix %*% second.derivative %*% t(covariate.matrix))
+	
+	g.1<-g.1.f(covariate.matrix, sample.variance, area.variance, response)
+	
+	d.g.1<-d.g.1.f(covariate.matrix, sample.variance, area.variance, response)
+	
+	t<-NULL
+
+    
+    	
+    	t<-k.d.prime* exp(k.var)*exp(((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) * exp(covariate.matrix %*% beta +g/2)+(k.prime)^2 * exp(k.var)*exp(((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) * exp(covariate.matrix %*% beta +g/2) +(k.prime) * exp(k.var)*((1-t.gamma)*(t.gamma)^2/sample.variance* (sample.variance+area.variance-g) + (1-t.gamma)^2/2*(1- diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix)) ))*exp(((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) * exp(covariate.matrix %*% beta +g/2)+(k.prime) * exp(k.var)*exp(((1-t.gamma)^2/2)*(sample.variance+area.variance-g)) * 0.5*first.derivitive.g* exp(covariate.matrix %*% beta +g/2) +0.5 * k.d.prime*g.1+k.prime*d.g.1+( ((t.gamma)^2/sample.variance)^2 * (sample.variance+area.variance-g) - (1-t.gamma) * 2* (t.gamma)^3/(sample.variance)^2* (sample.variance+area.variance-g) + 2* (1-t.gamma) *((t.gamma)^2/sample.variance) *(1-first.derivitive.g) + (1-t.gamma)^2/2 *(-second.derivative.g) ) *g.1 + ((1-t.gamma)*(t.gamma)^2/sample.variance* (sample.variance+area.variance-g) + (1-t.gamma)^2/2*(1- first.derivitive.g ))*d.g.1+(0.5*second.derivative.g)*g.1+0.5*first.derivitive.g*d.g.1
+    		
+    	
+    
+
+    return(t)
+	
+	
+	
+}
+
+
+I.1.f<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance){
+	
+	
+	g.1<-g.1.f(covariate.matrix, sample.variance, area.variance, response)
+	
+	d.g.1<-d.g.1.f(covariate.matrix, sample.variance, area.variance, response)
+	
+	d.2.g.1<-d.2.g.1.f(covariate.matrix, sample.variance, area.variance, response)
+	
+	I.1<-g.1-bias.area.variance*d.g.1-mse.area.variance*d.2.g.1
+	
+	return(I.1)
+	
+	
+}
+
+
+I.2.f<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance){
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	one.minus.gamma<-1-t.gamma
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	k.d.prime<-k.2.prime(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	
+	
+	I.2<-mse.area.variance*(exp(k.var))*(exp(covariate.matrix %*% beta + g/2))*((-2*t.gamma^3/sample.variance^2)*(sample.variance+area.variance-g)*(1-t.gamma)*exp((one.minus.gamma^2)*(sample.variance+area.variance-g)/2)+k.d.prime*exp((one.minus.gamma^2)*(sample.variance+area.variance-g)/2))+mse.area.variance*(exp(k.var))*(exp(covariate.matrix %*% beta + g/2))*exp((one.minus.gamma^2)*(sample.variance+area.variance-g)/2)*((t.gamma^2/sample.variance)^2*(one.minus.gamma^2*(sample.variance+area.variance-g)^2+(sample.variance+area.variance-g))+k.prime^2+2*k.prime*(t.gamma^2/sample.variance)*(sample.variance+area.variance-g)*(1-t.gamma))+exp(covariate.matrix %*% beta + g/2)*k.prime*exp(k.var)*bias.area.variance
+	
+	return(I.2)	
+	
+	
+}
+
+
+I.3.f<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance){
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	one.minus.gamma<-1-t.gamma
+	
+	# t.gamma<-matrix(t.gamma)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	k.d.prime<-k.2.prime(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	
+	
+	I.3<-mse.area.variance*(-exp(k.var))*(exp(covariate.matrix %*% beta + g/2))*((-2*t.gamma^3/sample.variance^2)*(sample.variance+area.variance-g)*(1-t.gamma)*exp((one.minus.gamma^2)*(sample.variance+area.variance-g)/2)+k.d.prime*exp((one.minus.gamma^2)*(sample.variance+area.variance-g)/2))+mse.area.variance*(exp(k.var))*(exp(covariate.matrix %*% beta + g/2))*exp((one.minus.gamma^2)*(sample.variance+area.variance-g)/2)*((t.gamma^2/sample.variance)^2*(one.minus.gamma^2*(sample.variance+area.variance-g)^2+(sample.variance+area.variance-g))+k.prime^2+2*k.prime*(t.gamma^2/sample.variance)*(sample.variance+area.variance-g)*(1-t.gamma))-exp(covariate.matrix %*% beta + g/2)*k.prime*exp(k.var)*bias.area.variance
+	
+	return(I.3)	
+	
+	
+}
+
+
+second.order.unbiased.estimator.risk<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance){
+	
+	
+	I.1<-I.1.f(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance)
+	
+	
+	I.2<-I.2.f(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance)
+	
+	
+	I.3<-I.3.f(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance)
+	
+	
+	R<-I.1+I.2+I.3
+	
+	return(R)
+	
+	
+}
+
+
+approximated.risk<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance){
+	
+	
+	g.1<-g.1.f(covariate.matrix, sample.variance, area.variance, response)
+	
+	I.2<-I.2.f(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance)
+	
+	I.3<-I.3.f(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance)
+	
+	R<-g.1+I.2+I.3
+	
+	return(R)
+	
+	
+}
+
+
+PR.estimated.area.variance.f<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	beta.tilde<-solve(t(covariate.matrix) %*% covariate.matrix) %*% t(covariate.matrix) %*% response
+	
+	p<-ncol(covariate.matrix)
+	
+	m<-length(response)
+	
+	t<-(sum((response-covariate.matrix %*% beta.tilde)^2)-sum(sample.variance*(1-diag(covariate.matrix %*% solve(t(covariate.matrix)%*% covariate.matrix)%*% t(covariate.matrix)))))/(m-p)
+	
+	pr<-max(c(0, t))
+	
+	return(pr)
+	
+	
+}
+
+
+FH.estimated.area.variance.f<-function(covariate.matrix, sample.variance, area.variance, response, max.iter=1000, printout=F, e=10^-5){
+	
+	m<-length(sample.variance)
+	
+	p<-ncol(covariate.matrix)
+	
+	response.star<-NULL
+	
+	for(i in 1: m){
+		
+		response.star[i]<-covariate.matrix[i, ] %*% solve(t(covariate.matrix) %*% covariate.matrix) %*% t(covariate.matrix) %*% response		
+		
+	}
+	
+  k<-0
+  
+  x.k<-area.variance
+  
+  convergence<-F
+  
+  while((1-convergence)&&(k<max.iter)){
+  	
+    k<-k+1
+    
+    f<-sum((response-response.star)^2/(x.k+sample.variance))-(m-p)
+    
+    f.prime<-sum(-(response-response.star)^2/(x.k+sample.variance)^2)
+    
+    x.new<-x.k-(f/f.prime)
+    
+    if (!(x.new==Inf | x.new==-Inf | is.na(x.new) | (x.new<0))){
+        
+    if(printout==T) print(x.new,digits=11)
+    if(abs(x.new-x.k)>e) {x.k<-x.new}
+    else convergence=T
+  } }
+  if(convergence){
+    # print(paste('convergence was reached after',k,'iteration(s)'))
+    
+    return(x.new)
+  }
+  else {#print(paste('convergence was not reached after',max.iter,'iteration(s)')); 
+  	   
+  	   return(-1)
+  	   
+  	   }
+		
+		
+	
+}
+
+
+hat.theta.HB.f<-function(covariate.matrix, sample.variance, area.variance, response){
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	
+	one.minus.gamma<-1-t.gamma
+	
+	gamma<-diag(t.gamma, m, m)
+		
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	phi<-one.minus.gamma*response+t.gamma*(covariate.matrix %*% beta)
+	
+	theta<-exp(phi+k.var)
+	
+	return(theta)
+	
+	
+}
+
+
+true.loss.f.theta<-function(covariate.matrix, sample.variance, area.variance, response, true.theta){
+	
+	theta.hat <- hat.theta.HB.f(covariate.matrix, sample.variance, area.variance, response)
+		
+	t <- true.theta *( sqrt((true.theta/theta.hat)) -sqrt((theta.hat/true.theta)) )^2 
+
+	
+	return(t)
+	
+	
+}
+
+
+
+true.loss.f.response<-function(covariate.matrix, sample.variance, area.variance, response, true.theta){
+	
+
+	t <- true.theta*(sqrt((true.theta/response))-sqrt((response/true.theta)))^2
+	
+	return(t)
+	
+	
+}
+
+
+
+theta.hat.CHB.area.variance<-function(covariate.matrix, sample.variance, area.variance, response, weight){
+	
+	theta.hat <- hat.theta.HB.f(covariate.matrix, sample.variance, area.variance, response)
+	
+	h <- theta.hat
+	
+	h_0 <- h*(sum(weight*exp(response))/sum(weight*h))
+	
+	return(h_0)
+	
+	
+}
+
+
+true.loss.f.theta.CB<-function(covariate.matrix, sample.variance, area.variance, response, weight, true.theta){
+	
+	theta.hat <- theta.hat.CHB.area.variance(covariate.matrix, sample.variance, area.variance, response, weight)
+		
+	t <- true.theta *(sqrt((true.theta/theta.hat)) -sqrt((theta.hat/true.theta)))^2 
+	
+	return(t)
+	
+	
+}
+
+
+
+
+###################################################################
+#################################  estimates using KL loss function
+
+
+theta.hat.HB.area.variance.kl <- function(covariate.matrix, sample.variance, area.variance, response){
+  
+  phi <- phi.hat.HB.area.variance(covariate.matrix, sample.variance, area.variance, response)
+  
+  k.var <- k(covariate.matrix, sample.variance, area.variance, response)
+  
+  h <- exp(phi+ 0.5 * k.var)
+  
+  return(h)
+  
+  
+}
+
+
+
+
+theta.hat.CHB.area.variance.kl <- function(covariate.matrix, sample.variance, area.variance, response, weight){
+  
+  phi <- phi.hat.HB.area.variance(covariate.matrix, sample.variance, area.variance, response)
+  
+  k.var <- k(covariate.matrix, sample.variance, area.variance, response)
+  
+  h <- exp(phi+ 0.5*k.var)
+  
+  h_0 <- h*(sum(weight*exp(response))/sum(weight*h))
+  
+  return(h_0)
+  
+  
+}
+
+
+loss.precuationary.function.kl <- function(covariate.matrix, sample.variance, area.variance, response, true.theta, weight){
+
+
+     estimate.bayes.kl <- theta.hat.HB.area.variance.kl(covariate.matrix, sample.variance, area.variance, response)
+
+
+     constrained.estimate.bayes.kl <- theta.hat.CHB.area.variance.kl(covariate.matrix, sample.variance, area.variance, response, weight)
+
+
+     loss.estimate.bayes.kl <- true.theta *(sqrt((true.theta/estimate.bayes.kl)) - sqrt((estimate.bayes.kl/true.theta)))^2  
+
+    
+     loss.constraint.estimate.bayes.kl <- true.theta *(sqrt((true.theta/constrained.estimate.bayes.kl)) - sqrt((constrained.estimate.bayes.kl/true.theta)))^2  
+
+
+     Loss.kl <- list(\"l.kl.bayes\"= loss.estimate.bayes.kl, \"l.kl.constrained.bayes\"= loss.constraint.estimate.bayes.kl)
+
+
+     return(Loss.kl)
+
+
+}
+
+
+
+###################################################################
+#################################  estimates using SE loss function
+
+
+theta.hat.HB.area.variance.sl <- function(covariate.matrix, sample.variance, area.variance, response){
+  
+  phi <- phi.hat.HB.area.variance(covariate.matrix, sample.variance, area.variance, response)
+  
+  h <- exp(phi)
+  
+  return(h)
+  
+  
+}
+
+theta.hat.CHB.area.variance.sl <- function(covariate.matrix, sample.variance, area.variance, response, weight){
+  
+  phi <- phi.hat.HB.area.variance(covariate.matrix, sample.variance, area.variance, response)
+  
+  h <- exp(phi)
+  
+  h_0 <- h + sum(weight*(exp(response)-h))
+  
+  return(h_0)
+  
+  
+}
+
+
+
+loss.precuationary.function.sl <- function(covariate.matrix, sample.variance, area.variance, response, true.theta, weight){
+
+
+     estimate.bayes.sl <- theta.hat.HB.area.variance.sl(covariate.matrix, sample.variance, area.variance, response)
+
+
+     constrained.estimate.bayes.sl <- theta.hat.CHB.area.variance.sl(covariate.matrix, sample.variance, area.variance, response, weight)
+
+
+     loss.estimate.bayes.sl <- true.theta *(sqrt((true.theta/estimate.bayes.sl)) - sqrt((estimate.bayes.sl/true.theta)))^2  
+
+    
+     loss.constraint.estimate.bayes.sl <- true.theta *(sqrt((true.theta/constrained.estimate.bayes.sl)) - sqrt((constrained.estimate.bayes.sl/true.theta)))^2  
+
+
+     Loss.sl <- list(\"l.sl.bayes\"= loss.estimate.bayes.sl, \"l.sl.constrained.bayes\"= loss.constraint.estimate.bayes.sl)
+
+
+     return(Loss.sl)
+
+
+}
+
+
+
+
+
+###################################################################
+#########  Risk of the constrained Bayes
+
+A_0 <-function(covariate.matrix, sample.variance, area.variance, response, weight){
+		
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+		
+	one.plus.gamma<-1+t.gamma
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	t<-exp(covariate.matrix%*% beta +area.variance*one.plus.gamma/2)
+	
+	h<-sum(t*weight)
+	
+	return(h)	
+	
+	
+}
+
+
+B_0 <-function(covariate.matrix, sample.variance, area.variance, response, weight){
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	t<-exp(covariate.matrix%*% beta +area.variance/2+sample.variance/2)
+	
+	h<-sum(t*weight)
+	
+	return(h)	
+	
+}
+
+
+constrained.second.order.unbiased.estimator.risk<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight){
+	
+	k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	
+	gamma<-diag(t.gamma, m, m)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	t<-second.order.unbiased.estimator.risk(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance)
+	
+	b_0<-B_0(covariate.matrix, sample.variance, area.variance, response, weight)
+	
+	a_0<-A_0(covariate.matrix, sample.variance, area.variance, response, weight)
+	
+	expectation<-exp(k.var)*exp((1-t.gamma)^2*(sample.variance+area.variance-g)/2)*exp(covariate.matrix %*% beta + g/2)
+	
+	
+	constrained.risk<-t+(sqrt(a_0/b_0)-sqrt(b_0/a_0))^2*expectation+(b_0/a_0-a_0/b_0)*exp(covariate.matrix %*% beta + g/2)*(k.prime*exp(k.var))*bias.area.variance
+	
+	return(constrained.risk)
+	
+	}
+	
+	
+	approximated.constrained.risk<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight){
+		
+	k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+	
+	k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+	
+	m<-length(sample.variance)
+	
+	t.gamma<-gamma_i(sample.variance, area.variance)
+	
+	
+	gamma<-diag(t.gamma, m, m)
+	
+	t<-sample.variance+area.variance
+	
+	sigma.matrix<-diag(t, m, m)
+	
+	sigma.matrix.inv<-solve(sigma.matrix)
+	
+	g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+    b_0<-B_0(covariate.matrix, sample.variance, area.variance, response, weight)
+	
+	a_0<-A_0(covariate.matrix, sample.variance, area.variance, response, weight)
+	
+	expectation<-exp(k.var)*exp((1-t.gamma)^2*(sample.variance+area.variance-g)/2)*exp(covariate.matrix %*% beta + g/2)
+	
+	t<-approximated.risk(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance)
+	
+	constrained.risk<-t+(sqrt(a_0/b_0)-sqrt(b_0/a_0))^2*expectation+(b_0/a_0-a_0/b_0)*exp(covariate.matrix %*% beta + g/2)*(k.prime*exp(k.var))*bias.area.variance
+	
+	
+	return(constrained.risk)	
+	
+}
+
+##################################################################
+################################  Risk estimation of response, y
+
+risk.response.true.parameters<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight){
+
+        k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+
+        k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+
+        m<-length(sample.variance)
+
+        t.gamma<-gamma_i(sample.variance, area.variance)
+
+
+        gamma<-diag(t.gamma, m, m)
+
+        t<-sample.variance+area.variance
+
+        sigma.matrix<-diag(t, m, m)
+
+        sigma.matrix.inv<-solve(sigma.matrix)
+
+        g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+
+        beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+
+        t_0<-exp(covariate.matrix%*% beta +area.variance/2+sample.variance/2)        
+
+        t_1<-exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_2<- -2 *exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(k.var/2)
+
+        t<-t_0+t_1+t_2
+
+        return(t)
+
+}
+
+###################################################################
+##############################################    
+
+first.derivitive.tau.risk.response.true.parameters<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight){
+
+        k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+
+        k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+
+        m<-length(sample.variance)
+
+        t.gamma<-gamma_i(sample.variance, area.variance)
+
+
+        gamma<-diag(t.gamma, m, m)
+
+        t<-sample.variance+area.variance
+
+        sigma.matrix<-diag(t, m, m)
+
+        sigma.matrix.inv<-solve(sigma.matrix)
+
+        g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	    beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+	
+	    first.derivitive<-d.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+	
+	    second.derivative<-d.2.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+
+        first.derivitive.g<-diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix))
+
+        second.derivative.g<-diag(covariate.matrix %*% second.derivative %*% t(covariate.matrix))        
+
+        t_0<- 0.5*exp(covariate.matrix%*% beta +area.variance/2+sample.variance/2)
+
+        t_1<- ((-t.gamma^2/sample.variance)*(-2*(1-2*t.gamma))*(area.variance+sample.variance-g)+(1-first.derivitive.g)*((1-2*t.gamma)^2/2))*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_2<-exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*(first.derivitive.g/2)* exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_3<-exp(covariate.matrix%*% beta+g/2)*exp(2*k.var) * exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*2*(k.prime)
+
+        t_4<- -2*((-t.gamma^2/sample.variance)*(t.gamma-1)*(area.variance+sample.variance-g)+((1-t.gamma)^2/2)*(1-first.derivitive.g))*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_5<- -2*exp(covariate.matrix%*% beta+g/2)*exp(k.var/2)*(first.derivitive.g/2)*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))
+
+        t_6<- -2*exp(covariate.matrix%*% beta+g/2)*exp(k.var/2)*(k.prime/2)*exp((1-t.gamma)^2*(area.variance+sample.variance-g)/2)
+
+        t<-t_0+t_1+t_2+t_3+t_4+t_5+t_6
+
+        return(t)
+  
+}
+
+############################################################################
+##############################################  second derivative w.r.t. tau
+
+second.derivitive.tau.risk.response.true.parameters<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight){
+
+        k.prime<-k.prime.i(covariate.matrix, sample.variance, area.variance, response)
+
+        k.var<-k(covariate.matrix, sample.variance, area.variance, response)
+
+        m<-length(sample.variance)
+
+        t.gamma<-gamma_i(sample.variance, area.variance)
+
+
+        gamma<-diag(t.gamma, m, m)
+
+        t<-sample.variance+area.variance
+
+        sigma.matrix<-diag(t, m, m)
+
+        sigma.matrix<-diag(t, m, m)
+
+        sigma.matrix.inv<-solve(sigma.matrix)
+
+        g<-diag(covariate.matrix %*% solve(t(covariate.matrix) %*% sigma.matrix.inv %*% covariate.matrix) %*% t(covariate.matrix))
+	
+	    beta<-beta.hat.area.variance(covariate.matrix, sample.variance, area.variance, response)
+         
+        k.d.prime<-k.2.prime(covariate.matrix, sample.variance, area.variance, response)
+
+        first.derivitive<-d.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+	
+	    second.derivative<-d.2.X.prime.sigma.inverse.X(covariate.matrix, sample.variance, area.variance, response)
+
+        first.derivitive.g<-diag(covariate.matrix %*% first.derivitive %*% t(covariate.matrix))
+
+        second.derivative.g<-diag(covariate.matrix %*% second.derivative %*% t(covariate.matrix))   
+
+        t_0<- 0.25*exp(covariate.matrix%*% beta +area.variance/2+sample.variance/2)        
+
+        t_1<- ((2*t.gamma^3/sample.variance^2)*(-2*(1-2*t.gamma))*(area.variance+sample.variance-g)+4*(t.gamma^2/sample.variance)^2*(area.variance+sample.variance-g)+(t.gamma^2/sample.variance)*(2*(1-2*t.gamma))*(1-first.derivitive.g)-second.derivative.g*(1-2*t.gamma)^2/2+(1-first.derivitive.g)*(-t.gamma^2/sample.variance)*(-2*(1-2*t.gamma)) )*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_2<-((-t.gamma^2/sample.variance)*(-2*(1-2*t.gamma))*(area.variance+sample.variance-g)+(1-first.derivitive.g)*((1-2*t.gamma)^2/2)  )^2*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_3<-((-t.gamma^2/sample.variance)*(-2*(1-2*t.gamma))*(area.variance+sample.variance-g)+ (1-first.derivitive.g)*((1-2*t.gamma)^2/2)  )*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)*exp( ((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*(first.derivitive.g/2)
+
+        t_4<-((-t.gamma^2/sample.variance)*(-2*(1-2*t.gamma))*(area.variance+sample.variance-g)+ (1-first.derivitive.g)*((1-2*t.gamma)^2/2))*exp( ((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)*2*k.prime
+
+        t_5<-((-t.gamma^2/sample.variance)*(-2*(1-2*t.gamma))*(area.variance+sample.variance-g)+(1-first.derivitive.g)*((1-2*t.gamma)^2/2))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)*(first.derivitive.g/2)*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))
+
+        t_6<-exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*(second.derivative.g/2)*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_7<-exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*(first.derivitive.g/2)^2*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_8<-2*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*(first.derivitive.g/2)*2*k.prime*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_9<-((-t.gamma^2/sample.variance)*(-2*(1-2*t.gamma))*(area.variance+sample.variance-g)+ (1-first.derivitive.g)*((1-2*t.gamma)^2/2))*2*k.prime*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))
+
+        t_10<-2*k.d.prime*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        t_11<-(2*k.prime)^2*exp(((1-2*t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(2*k.var)
+
+        #########################   starting the modified version from here   #####################
+
+        t_12<- -2*((2*t.gamma^3/sample.variance^2)*(-(1-t.gamma))*(area.variance+sample.variance-g)+(t.gamma^2/sample.variance)^2*(area.variance+sample.variance-g)+(t.gamma^2/sample.variance)*((1-t.gamma))*(1-first.derivitive.g)-second.derivative.g*(1-t.gamma)^2/2+(1-first.derivitive.g)*(-t.gamma^2/sample.variance)*(-(1-t.gamma)) )*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)
+
+        t_13<- -2*((-t.gamma^2/sample.variance)*(-(1-t.gamma))*(area.variance+sample.variance-g)+(1-first.derivitive.g)*((1-t.gamma)^2/2)  )^2*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)
+
+        t_14<- -2*((-t.gamma^2/sample.variance)*(-(1-t.gamma))*(area.variance+sample.variance-g)+ (1-first.derivitive.g)*((1-t.gamma)^2/2)  )*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)*exp( ((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*(first.derivitive.g/2)
+
+        t_15<- -2*((-t.gamma^2/sample.variance)*(-(1-t.gamma))*(area.variance+sample.variance-g)+ (1-first.derivitive.g)*((1-t.gamma)^2/2))*exp( ((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)*0.5*k.prime
+
+        t_16<- -2*((-t.gamma^2/sample.variance)*(-(1-t.gamma))*(area.variance+sample.variance-g)+(1-first.derivitive.g)*((1-t.gamma)^2/2))*exp(covariate.matrix%*% beta+g/2) *exp(0.5*k.var)*(first.derivitive.g/2)*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))
+
+        t_17<- -2*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*(second.derivative.g/2)*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)
+
+        t_18<- -2*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*(first.derivitive.g/2)^2*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)
+
+        t_19<- -2*2*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*(first.derivitive.g/2)*0.5*k.prime*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)
+
+        t_20<- -2*((-t.gamma^2/sample.variance)*(-(1-t.gamma))*(area.variance+sample.variance-g)+ (1-first.derivitive.g)*((1-t.gamma)^2/2))*0.5*k.prime*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))
+
+        t_21<- -2*0.5*k.d.prime*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)
+
+        t_22<- -2*(0.5*k.prime)^2*exp(((1-t.gamma)^2/2)*(area.variance+sample.variance-g))*exp(covariate.matrix%*% beta+g/2)*exp(0.5*k.var)
+
+   
+        t<-t_0+t_1+t_2+t_3+t_4+t_5+t_6+t_7+t_8+t_9+t_10+t_11+t_12+t_13+t_14+t_15+t_16+t_17+t_18+t_19+t_20+t_21+t_22
+
+        return(t)
+
+
+}
+
+#######################################################################
+###########################################  estimated risk of response
+
+
+estimated.risk.response<-function(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight){
+
+
+second.derivative.risk<-second.derivitive.tau.risk.response.true.parameters(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight)
+
+
+first.derivative.risk<-first.derivitive.tau.risk.response.true.parameters(covariate.matrix, sample.variance, area.variance, response, bias.area.variance, mse.area.variance, weight)
+
+
+risk<-risk.response.true.parameters(covariate.matrix, sample.variance,area.variance, response, bias.area.variance, mse.area.variance, weight)
+
+
+t<-risk+first.derivative.risk*bias.area.variance+0.5*second.derivative.risk*mse.area.variance
+
+return(t)
+
+
+}
+
+
+###################################################################
+########################################################  data
+
+library(\"xtable\")
+
+set.seed(35)
+
+
+###  setwd(\"/Users/elahehtorkashvand/Desktop/scale-loss-function/data\")
+
+vitamin<-read.csv(\"DSQIDS_G.csv\")
+
+BP<-read.csv(\"Blood_Pressure.csv\")
+
+BM<-read.csv(\"Body_Measure.csv\")
+
+C_HDL<-read.csv(\"Chol_HDL.csv\")
+
+C_LDL<-read.csv(\"Chol_LDL.csv\")
+
+C_Total<-read.csv(\"CHOL_Total.csv\")
+
+DEMO<-read.csv(\"DEMO.csv\")
+
+MC<-read.csv(\"Medical_Condition.csv\")
+
+smoke<-read.csv(\"SMQFAM_G.csv\")
+
+###########################################
+#####  Reading Variables #####
+
+vitamin.d<-vitamin$DSQIVD
+
+t19<-which(!is.na(vitamin.d))   ####  length(t19)=3669
+
+vitamin.c<-vitamin$DSQIVC
+
+t20<-which(!is.na(vitamin.c))   ####  length(t20)=3254
+
+
+gender<-DEMO$RIAGENDR
+
+t1<-which(!is.na(gender))   #### length(t1)=9756
+
+age<-DEMO$RIDAGEYR
+
+t2<-which(!is.na(age))    ####  length(t2)=9756
+
+race<-DEMO$RIDRETH3
+
+t3<-which(!is.na(race))         ####  length(t3)=9756
+
+bmi<-BM$BMXBMI
+
+t7<-which(!is.na(bmi))    #####  length(t7)=8602
+
+smoking_status<-smoke$SMD410
+
+t14<-which(!is.na(smoking_status))      #####  length(t14)=9715
+
+asthma<-MC$MCQ010
+
+t17<-which(!is.na(asthma))            #######  length(t17)=9363
+
+heritage_asthma<-MC$MCQ300B
+
+t18<-which(!is.na(heritage_asthma))     ########   length(t18)=8161
+
+########  Removaing NA's
+
+####### Starting from the smallest values. The second smallest %in% smallest
+
+####  Asthma disease
+
+
+
+t<-which(t19 %in% t20)
+
+index<-t19[t]
+
+
+t<-which(t7 %in% index)
+
+index<-t7[t]
+
+
+t<-which(t18 %in% index)
+
+index<-t18[t]
+
+t<-which(t17 %in% index)
+
+index<-t17[t]
+
+t<-which(t14 %in% index)
+
+index<-t14[t]
+
+t<-t1 %in% index
+
+index<-t1[t]
+
+t<-t2 %in% index
+
+index<-t2[t]
+
+t<-t3 %in% index
+
+index<-t3[t]
+
+
+
+
+###########################################################
+##################################  variables without NA's
+
+vitamin.c<-vitamin.c[index]
+
+vitamin.d<-vitamin.d[index]
+
+
+gender<-gender[index]
+
+age<-age[index]
+
+race<-race[index]
+
+bmi<-bmi[index]
+
+smoking_status<-smoking_status[index]
+
+asthma<-asthma[index]
+
+heritage_asthma<-heritage_asthma[index]
+
+##############################################
+##################  Making small areas using age, smoking_status and race
+
+q.vitamin.c<-quantile(vitamin.c, prob = seq(0, 1, length = 5), type = 5)
+
+q.vitamin.d<-quantile(vitamin.d, prob = seq(0, 1, length = 5), type = 5)
+
+
+q.age<-quantile(age, prob = seq(0, 1, length = 5), type = 5)
+
+q.bmi<-quantile(bmi, prob = seq(0, 1, length = 5), type = 5)
+
+
+t<-NULL
+
+t1<-c(1, 2, 3, 4, 6, 7)
+
+t2<-c(1, 2, 9)
+
+n<-NULL
+
+count<-0
+
+for(a1 in 1:4){   ### all turning
+	
+	for(a2 in 1:2){
+		
+				
+			for(a4 in 1: 6){
+				
+				for(a5 in 1:4){
+					
+					for(a6 in 1:4){
+						
+				
+				l<-which(smoking_status==a2 & ((q.age[a1]<= age ) & (age< q.age[(a1+1)]))  & (race==t1[a4]) & ((q.vitamin.c[a5]<=vitamin.c)&(vitamin.c<q.vitamin.c[a5+1])) & ((q.vitamin.d[a6]<=vitamin.d)&(vitamin.d<q.vitamin.d[a6+1]))  )
+				
+				if(length(l)>0){
+					
+					t<-c(t, l)
+					
+					count<-count+1										
+
+					n[count]<-length(l)
+					
+                    
+					
+					}
+					
+				if(a1==4){
+					
+					s<-which(smoking_status==a2  &  (q.age[(a1+1)]== age )   & (race==t1[a4]) & ((q.vitamin.c[a5]<=vitamin.c)&(vitamin.c<q.vitamin.c[a5+1])) & ((q.vitamin.d[a6]<=vitamin.d)&(vitamin.d<q.vitamin.d[a6+1]))  )
+				
+				if(length(s)>0){
+					
+					t<-c(t, s)
+					
+					n[count]<-n[count]+length(s)
+					
+										
+					}
+
+ 				
+				
+				if(a1==4 & a5==4){
+					
+					s<-which(smoking_status==a2 &  (q.age[(a1+1)]== age )   & (race==t1[a4]) & (vitamin.c == q.vitamin.c[a5+1]) & ((q.vitamin.d[a6]<=vitamin.d)&(vitamin.d<q.vitamin.d[a6+1]))  )
+				
+				if(length(s)>0){
+					
+					t<-c(t, s)
+					
+					n[count]<-n[count]+length(s)
+					
+										
+					}
+
+					
+				}
+
+
+                				
+				if(a1==4 & a6==4){
+					
+					s<-which(smoking_status==a2  &  (q.age[(a1+1)]== age )   & (race==t1[a4]) & ((q.vitamin.c[a5]<=vitamin.c)&(vitamin.c<q.vitamin.c[a5+1])) & (vitamin.d==q.vitamin.d[a6+1])  )
+				
+				if(length(s)>0){
+					
+					t<-c(t, s)
+					
+					n[count]<-n[count]+length(s)
+					
+										
+					}
+
+					
+				}
+
+ 			
+				if(a1==4 & a5==4 & a6==4){
+					
+					s<-which(smoking_status==a2 &  (q.age[(a1+1)]== age )   & (race==t1[a4]) & (vitamin.c == q.vitamin.c[a5+1]) & (vitamin.d==q.vitamin.d[(a6+1)])  )
+				
+				if(length(s)>0){
+					
+					t<-c(t, s)
+					
+					n[count]<-n[count]+length(s)
+					
+										
+					}
+
+					
+				}
+				
+
+			
+					
+				}
+				
+				
+									
+				if(a5==4){
+					
+					s<-which(smoking_status==a2  & ((q.age[a1]<= age ) & (age< q.age[(a1+1)]))  & (race==t1[a4]) & (q.vitamin.c[(a5+1)]==vitamin.c) & ((q.vitamin.d[a6]<=vitamin.d)&(vitamin.d<q.vitamin.d[a6+1]))  )
+				
+				if(length(s)>0){
+					
+					t<-c(t, s)
+					
+					n[count]<-n[count]+length(s)
+					
+										
+					}
+					
+					if(a5==4 & a6==4){
+					
+					s<-which(smoking_status==a2  & ((q.age[a1]<= age ) & (age< q.age[(a1+1)]))  & (race==t1[a4]) & (q.vitamin.c[(a5+1)]==vitamin.c) &  (vitamin.d==q.vitamin.d[a6+1])  )
+				
+				if(length(s)>0){
+					
+					t<-c(t, s)
+					
+					n[count]<-n[count]+length(s)
+					
+										
+					}
+
+					
+				}
+
+					
+				}
+				
+									
+				if(a6==4){
+					
+					s<-which(smoking_status==a2  & ((q.age[a1]<= age ) & (age< q.age[(a1+1)]))  & (race==t1[a4]) & ((q.vitamin.c[a5]<=vitamin.c)&(vitamin.c<q.vitamin.c[a5+1])) & (vitamin.d==q.vitamin.d[(a6+1)] )  )
+				
+				if(length(s)>0){
+					
+					t<-c(t, s)
+					
+					n[count]<-n[count]+length(s)
+					
+										
+					}
+
+					
+				}
+				
+
+
+				
+				
+	
+					
+					
+				}				
+								
+			}
+			
+		}
+		
+    }
+    
+  }
+	
+
+	
+##############################################
+########################   Finding the covariates- we remove areas that have no asthma occurence
+
+areas.modified<-NULL
+
+n.modified<-NULL
+
+l<-1
+
+asthma_ratio<-NULL
+
+covariate.matrix<-matrix(0, nrow=count, ncol=4)
+ 
+for(i in 1:count){
+	
+	if(i==1){
+		
+		a<-1
+		
+		b<-n[i]
+		
+		area<-t[a:b]
+		
+	}
+	
+	if(i>1){
+		
+		a<-sum(n[1:(i-1)])+1
+		
+		b<-sum(n[1:i])
+		
+		area<-t[a:b]
+		
+	}
+	
+	# # # # print(\"###################### Count #######################\")
+					
+	# # # # print(i)
+
+    # # # # print(\"ratio of asthma\"); print(mean(asthma[area]==1))
+    
+    # # # # print(\"ratio of gender\"); print(mean(gender[area]==2))
+    
+    # # # # print(\"ratio of heritage\"); print(mean(heritage_asthma[area]==1))	
+	
+	if(mean(asthma[area]==1)!=0 ) {
+		
+	areas.modified<-c(areas.modified, area)
+	
+	n.modified[l]<-n[i]
+	
+	
+	asthma_ratio[l] <- mean(asthma[area]==1)
+		
+	covariate.matrix[l, 1] <- 1
+	
+	covariate.matrix[l, 2] <- mean(bmi[area])
+	
+	covariate.matrix[l, 3] <- mean(gender[area]==1)+0.0001
+	
+	covariate.matrix[l, 4] <- mean(heritage_asthma[area]==1)+0.0001
+		
+	l<-l+1
+	
+	}
+}
+
+l<-l-1
+
+
+areas<-NULL
+
+areas<-areas.modified
+
+n<-NULL
+
+n<-n.modified[1:l]
+
+number.of.areas<-length(n)
+
+covariate.matrix.modified<-covariate.matrix[1:l,]
+
+covariate.matrix<-matrix(0, nrow=number.of.areas, ncol=4)
+
+covariate.matrix<-covariate.matrix.modified
+
+asthma_ratio[asthma_ratio==0]<-10^(-5)
+
+log_asthma_ratio <-(log(asthma_ratio))
+
+
+#####   mixed-forward-backward method
+
+
+model<-lm(log(asthma_ratio) ~ 1)
+
+summary(model)
+
+
+
+model<-lm(log(asthma_ratio) ~ log(covariate.matrix[, 2]))
+
+summary(model)
+
+
+
+model<-lm(log(asthma_ratio) ~  log(covariate.matrix[, 3])) ###  highest r^2, still negligible
+
+summary(model)
+
+
+
+model<-lm(log(asthma_ratio) ~  log(covariate.matrix[, 4]))
+
+summary(model)
+
+#### forward
+
+
+model<-lm(log(asthma_ratio) ~  log(covariate.matrix[, 3]) + log(covariate.matrix[, 2])) 
+
+summary(model)
+
+### then removing intercept: it has %2 improvement in R^2
+
+model<-lm(log(asthma_ratio) ~  log(covariate.matrix[, 3]) + log(covariate.matrix[, 2]) -1 ) 
+
+summary(model)
+
+###  Does not improve significantly
+
+model<-lm(log(asthma_ratio) ~  log(covariate.matrix[, 4]) + log(covariate.matrix[, 3]) + log(covariate.matrix[, 2]) -1 ) 
+
+summary(model)
+
+
+
+
+
+### the best model so far
+
+
+model<-lm(log(asthma_ratio) ~ log(covariate.matrix[, 2]) +  log(covariate.matrix[, 4]) -1 )
+ 
+summary(model)
+
+
+print(log(covariate.matrix[, 2]))
+
+
+print(log(covariate.matrix[, 4]))
+
+
+print(n)
+
+
+##########################################################################################
+##############################################################
+#########################  Analysis of NHANES Data
+
+##############################################
+########################   Finding the covariates
+
+                       variance.inside.areas<-NULL
+
+ 			
+ 	               beta.estimate<-model$coefficients
+			
+									
+			
+			variance.inside.areas <- var(log_asthma_ratio) 
+			
+			
+			print(variance.inside.areas)
+			
+			
+			
+			######  For the original second area is variance.inside.areas/8
+			
+			######  For the original six'th area is variance.inside.areas/15
+			
+			######  For the original seventeen'th area is variance.inside.areas/17
+			
+
+
+true.sample.variance.a<-variance.inside.areas/n
+
+true.sample.sd.a<-sqrt(variance.inside.areas/n)
+
+
+covariate.matrix.modified<-cbind((covariate.matrix[, 1]), log(covariate.matrix[, 2]), (covariate.matrix[, 3]), log(covariate.matrix[, 4]))
+
+covariate.matrix<-matrix(0, nrow=number.of.areas, ncol=2)
+
+
+
+covariate.matrix[, 1]<-covariate.matrix.modified[, 2]
+
+covariate.matrix[, 2]<-covariate.matrix.modified[, 4]
+
+
+
+
+
+true.area.variance <- 0.36   ####  for the asthma regressed on gender and herritage
+
+true.area.sd<-sqrt(true.area.variance)
+
+#########################################################################################################
+############################################  defining the necessary matrics for the simulation studies
+
+Rep<-10000
+
+B<-10000  # bootstrap parameter
+
+B.jackknife<-1000
+
+Z.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+Z.boot.a.PR<-matrix(0, nrow=number.of.areas, ncol=B)
+
+Z.boot.a.FH<-matrix(0, nrow=number.of.areas, ncol=B)
+
+Z.boot.a.PR.jackknife<-matrix(0, nrow=number.of.areas, ncol=B.jackknife)
+
+Z.boot.a.FH.jackknife<-matrix(0, nrow=number.of.areas, ncol=B.jackknife)
+
+phi<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+phi.boot.a.PR<-matrix(0, nrow=number.of.areas, ncol=B)
+
+phi.boot.a.FH<-matrix(0, nrow=number.of.areas, ncol=B)
+
+phi.boot.a.PR.jackknife<-matrix(0, nrow=number.of.areas, ncol=B.jackknife)
+
+phi.boot.a.FH.jackknife<-matrix(0, nrow=number.of.areas, ncol=B.jackknife)
+
+theta<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+theta.boot.a.PR<-matrix(0, nrow=number.of.areas, ncol=B)
+
+theta.boot.a.FH<-matrix(0, nrow=number.of.areas, ncol=B)
+
+loss.of.response.a.PR<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.a.PR<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.c.b.a.PR<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+
+loss.of.theta.a.PR.sl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.c.b.a.PR.sl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+
+loss.of.theta.a.PR.kl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.c.b.a.PR.kl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+
+
+risk.response.FH.estimation<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+risk.response.PR.estimation<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+risk.of.response.a.PR<-matrix(0, nrow=number.of.areas, ncol=1)
+
+risk.of.theta.a.PR<-matrix(0, nrow=number.of.areas, ncol=1)
+
+PR.estimator.a<-matrix(0, nrow=1, ncol=Rep)
+
+PR.estimator.boot.a<-matrix(0, nrow=1, ncol=B)
+
+loss.PR.estimator.a<-matrix(0, nrow=1, ncol=Rep)
+
+mse.PR.estimator.a<-matrix(0, nrow=1, ncol=1)
+
+loss.of.response.a.FH<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.a.FH<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.c.b.a.FH<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+
+
+loss.of.theta.a.FH.sl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.c.b.a.FH.sl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+
+loss.of.theta.a.FH.kl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+loss.of.theta.c.b.a.FH.kl<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+
+
+risk.of.response.a.FH<-matrix(0, nrow=number.of.areas, ncol=1)
+
+risk.of.theta.a.FH<-matrix(0, nrow=number.of.areas, ncol=1)
+
+FH.estimator.a<-matrix(0, nrow=1, ncol=Rep)
+
+FH.estimator.boot.a<-matrix(0, nrow=1, ncol=B)
+
+FH.estimator.boot.a.jackknife<-matrix(0, nrow=1, ncol=B.jackknife)
+
+loss.FH.estimator.a<-matrix(0, nrow=1, ncol=Rep)
+
+mse.FH.estimator.a<-matrix(0, nrow=1, ncol=1)
+
+beta<-matrix(beta.estimate, nrow=ncol(covariate.matrix), ncol=1)
+
+second.order.unbiased.estimator.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.PR.s.o.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.FH.s.o.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.PR.s.o.c.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.FH.s.o.c.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.PR.a.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.FH.a.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.PR.a.c.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+jackknife.unweighted.FH.a.c.a<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+average.jackknife.unweighted.PR.s.o.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.jackknife.unweighted.FH.s.o.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.jackknife.unweighted.PR.s.o.c.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.jackknife.unweighted.FH.s.o.c.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.jackknife.unweighted.PR.a.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.jackknife.unweighted.FH.a.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.jackknife.unweighted.PR.a.c.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.jackknife.unweighted.FH.a.c.a<-matrix(0, nrow=number.of.areas, ncol=1)
+
+constrained.second.order.unbiased.estimator.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+approximated.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+approximated.constrained.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+average.second.order.unbiased.estimator.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.constrained.second.order.unbiased.estimator.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.approximated.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.constrained.approximated.risk.a.PR<-matrix(0, nrow=number.of.areas, ncol=1)
+
+bias.area.variance.bootstrap.a.PR<-matrix(0, nrow=1, ncol=B)
+
+mse.area.variance.bootstrap.a.PR<-matrix(0, nrow=1, ncol=B)
+
+bias.area.variance.bootstrap.a.PR.jackknife<-matrix(0, nrow=1, ncol=B.jackknife)
+
+mse.area.variance.bootstrap.a.PR.jackknife<-matrix(0, nrow=1, ncol=B.jackknife)
+
+second.order.unbiased.estimator.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+constrained.second.order.unbiased.estimator.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+approximated.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+approximated.constrained.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=Rep)
+
+average.second.order.unbiased.estimator.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.constrained.second.order.unbiased.estimator.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.approximated.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=1)
+
+average.constrained.approximated.risk.a.FH<-matrix(0, nrow=number.of.areas, ncol=1)
+
+bias.area.variance.bootstrap.a.FH<-matrix(0, nrow=1, ncol=B)
+
+mse.area.variance.bootstrap.a.FH<-matrix(0, nrow=1, ncol=B)
+
+bias.area.variance.bootstrap.a.FH.jackknife<-matrix(0, nrow=1, ncol=B.jackknife)
+
+mse.area.variance.bootstrap.a.FH.jackknife<-matrix(0, nrow=1, ncol=B.jackknife)
+
+count<-0
+
+count.B<-0
+
+
+
+
+
+Rep_theta <- 200
+
+
+Rep_sample <- Rep/Rep_theta
+
+
+counter.i.gen <- 1
+
+
+while(counter.i.gen <= Rep){
+
+
+for(counter.theta in 1: Rep_theta){
+  
+  
+  for(j in 1: number.of.areas){
+    
+
+    mu <- covariate.matrix[j,] %*% beta.estimate
+
+    
+    phi[j, counter.theta] <- rnorm(1, mu, true.area.sd)
+
+
+    theta[j, counter.theta] <- exp(phi[j, counter.theta])
+
+  
+  }
+ 
+  
+  for(counter.sample in 1: Rep_sample){
+    
+  
+     for(j in 1: number.of.areas){
+    
+  
+        Z.a[j, counter.i.gen] <- rnorm(1, theta[j, counter.theta], true.sample.sd.a[j])
+    
+     }
+  
+     counter.i.gen <- counter.i.gen + 1 
+  
+  
+}
+
+  
+}
+  
+}
+
+
+
+
+####  weight
+
+number.of.areas<-length(n)
+
+
+w<-rep(1/number.of.areas, number.of.areas)
+
+t<-NULL
+
+counter.i<-begin
+
+while(counter.i<=end){
+	
+	
+	### I have checked the code. area.variance has not been used in PR.estimated.area.variance.f. I just keep it because of the consistency!
+	
+	PR.estimator.a[counter.i]<-PR.estimated.area.variance.f(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=true.area.variance, response=Z.a[, counter.i])
+		
+       # true.area.variance<-PR.estimator.a[counter.i]
+
+	#######  Fay-Herriot Estimator
+	
+	FH.estimator.a[counter.i]<-FH.estimated.area.variance.f(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], max.iter=1000)
+		
+	if(!(FH.estimator.a[counter.i]==-1 )){
+		
+	count<-count+1
+	
+	loss.PR.estimator.a[counter.i]<-(PR.estimator.a[counter.i]-true.area.variance)^2
+		
+	loss.FH.estimator.a[counter.i]<-(FH.estimator.a[counter.i]-true.area.variance)^2
+		
+	####################################################################
+	#####   Finding the true loss corresponding to the response variable
+	
+	loss.of.response.a.PR[, counter.i]<-true.loss.f.response(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=exp(Z.a[, counter.i]), true.theta=theta[, ceiling(counter.i/Rep_sample)])
+	
+	loss.of.response.a.FH[, counter.i]<-true.loss.f.response(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=exp(Z.a[, counter.i]), true.theta=theta[, ceiling(counter.i/Rep_sample)])
+	
+		
+	########################################################
+	#####   Finding the true loss corresponding to the theta
+	
+	loss.of.theta.a.PR[, counter.i]<-true.loss.f.theta(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], true.theta=theta[, ceiling(counter.i/Rep_sample)])
+	
+	loss.of.theta.a.FH[, counter.i]<-true.loss.f.theta(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], true.theta=theta[, ceiling(counter.i/Rep_sample)])
+
+
+	
+	loss.of.theta.c.b.a.PR[, counter.i]<-true.loss.f.theta.CB(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], weight=w, true.theta=theta[, ceiling(counter.i/Rep_sample)])
+	
+	loss.of.theta.c.b.a.FH[, counter.i]<-true.loss.f.theta.CB(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], weight=w, true.theta=theta[, ceiling(counter.i/Rep_sample)])
+
+
+
+        ################################################################
+        ############################################ KL estimates loss function
+
+   
+        total.kl.PR <- loss.precuationary.function.kl(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], weight=w, true.theta=theta[, ceiling(counter.i/Rep_sample)])
+
+        loss.of.theta.c.b.a.PR.kl[, counter.i] <- total.kl.PR$l.kl.constrained.bayes
+
+        
+        loss.of.theta.a.PR.kl[, counter.i] <- total.kl.PR$l.kl.bayes
+
+
+        total.kl.FH <- loss.precuationary.function.kl(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], weight=w, true.theta=theta[, ceiling(counter.i/Rep_sample)])
+     
+
+        loss.of.theta.c.b.a.FH.kl[, counter.i] <- total.kl.FH$l.kl.constrained.bayes 
+
+
+        loss.of.theta.a.FH.kl[, counter.i] <- total.kl.FH$l.kl.bayes
+
+        
+
+        total.sl.PR <- loss.precuationary.function.sl(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], weight=w, true.theta=theta[, ceiling(counter.i/Rep_sample)])
+
+
+        loss.of.theta.c.b.a.PR.sl[, counter.i] <- total.sl.PR$l.sl.constrained.bayes 
+
+
+        loss.of.theta.a.PR.sl[, counter.i] <- total.sl.PR$l.sl.bayes
+
+
+
+
+        total.sl.FH <- loss.precuationary.function.sl(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], weight=w, true.theta=theta[, ceiling(counter.i/Rep_sample)])
+
+
+        loss.of.theta.c.b.a.FH.sl[, counter.i] <- total.sl.FH$l.sl.constrained.bayes 
+
+
+        loss.of.theta.a.FH.sl[, counter.i] <- total.sl.FH$l.sl.bayes
+
+	
+
+
+	###########################################################
+	####  in order ot find the bias and variance using the bootstrap method.
+	
+	beta.boot.a.PR<-beta.hat.area.variance(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i])
+	
+	beta.boot.a.FH<-beta.hat.area.variance(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i])
+	
+		
+	t.B<-NULL
+	
+	for(l in 1:B){
+		
+		for(j in 1: number.of.areas){
+			
+			mu.a.PR<-covariate.matrix[j,] %*% beta.boot.a.PR
+						
+			phi.boot.a.PR[j, l]<-rnorm(1, mu.a.PR, sqrt(PR.estimator.a[counter.i]))
+						
+			theta.boot.a.PR[j, l]<-exp(phi.boot.a.PR[j, l])
+						
+			Z.boot.a.PR[j, l]<-rnorm(1, phi.boot.a.PR[j, l], true.sample.sd.a[j])
+			
+			mu.a.FH<-covariate.matrix[j,] %*% beta.boot.a.FH
+						
+			phi.boot.a.FH[j, l]<-rnorm(1, mu.a.FH, sqrt(FH.estimator.a[counter.i]))
+			
+			theta.boot.a.FH[j, l]<-exp(phi.boot.a.FH[j, l])
+			
+			Z.boot.a.FH[j, l]<-rnorm(1, phi.boot.a.FH[j, l], true.sample.sd.a[j])
+						
+		}
+		
+		####  area.variance has not been used in the PR.estimated.area.variance.f. I just kept it for the consistency. 
+		
+		PR.estimator.boot.a[l]<-PR.estimated.area.variance.f(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=true.area.variance, response=Z.boot.a.PR[, l])
+	
+	    bias.area.variance.bootstrap.a.PR[l]<-PR.estimator.boot.a[l]-PR.estimator.a[counter.i]
+
+		mse.area.variance.bootstrap.a.PR[l]<-(PR.estimator.boot.a[l]-PR.estimator.a[counter.i])^2
+
+		        
+    
+    
+        FH.estimator.boot.a[l]<-FH.estimated.area.variance.f(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=true.area.variance, response=Z.boot.a.FH[, l])
+	
+	    if(!(FH.estimator.boot.a[l]==-1 )){
+	    	
+	    count.B<-count.B+1
+	    
+	    bias.area.variance.bootstrap.a.FH[l]<-FH.estimator.boot.a[l]-FH.estimator.a[counter.i]
+		
+		mse.area.variance.bootstrap.a.FH[l]<-(FH.estimator.boot.a[l]-FH.estimator.a[counter.i])^2
+
+		t.B<-c(t.B, l)
+		
+	}
+	
+	}
+	
+	bias.a.PR<-mean(bias.area.variance.bootstrap.a.PR[t.B])
+    
+    mse.a.PR<-mean(mse.area.variance.bootstrap.a.PR[t.B])
+    
+    bias.a.FH<-mean(bias.area.variance.bootstrap.a.FH[t.B])
+    
+    mse.a.FH<-mean(mse.area.variance.bootstrap.a.FH[t.B])
+    
+	
+	####################################################################################
+	####   Finding the estimated value of the risk function (second order approximation)
+	
+	second.order.unbiased.estimator.risk.a.PR[, counter.i]<-second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.PR, mse.area.variance=mse.a.PR)
+		
+	second.order.unbiased.estimator.risk.a.FH[, counter.i]<-second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.FH, mse.area.variance=mse.a.FH)
+	
+		
+	constrained.second.order.unbiased.estimator.risk.a.PR[, counter.i]<-constrained.second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.PR, mse.area.variance=mse.a.PR, weight=w)
+	
+	constrained.second.order.unbiased.estimator.risk.a.FH[, counter.i]<-constrained.second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.FH, mse.area.variance=mse.a.FH, weight=w)
+	
+		
+	####################################################################################
+	####   Finding the estimated value of the risk function (g_1+g_2+g_3)
+	
+	approximated.risk.a.PR[, counter.i]<-approximated.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.PR, mse.area.variance=mse.a.PR)
+	
+	approximated.risk.a.FH[, counter.i]<-approximated.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.FH, mse.area.variance=mse.a.FH)
+	
+	approximated.constrained.risk.a.PR[, counter.i]<-approximated.constrained.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.PR, mse.area.variance=mse.a.PR, weight=w)
+	
+	approximated.constrained.risk.a.FH[, counter.i]<-approximated.constrained.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.FH, mse.area.variance=mse.a.FH, weight=w)
+	
+
+#########################################################################################
+#####################################  Jackknife Method  ################################
+
+approximated.risk.a.PR.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+approximated.risk.a.FH.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+approximated.constrained.risk.a.FH.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+approximated.constrained.risk.a.PR.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+second.order.unbiased.estimator.risk.a.PR.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+second.order.unbiased.estimator.risk.a.FH.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+constrained.second.order.unbiased.estimator.risk.a.PR.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+constrained.second.order.unbiased.estimator.risk.a.FH.jackknife<-matrix(0, nrow=number.of.areas, ncol=number.of.areas)
+
+
+for(h in 1: number.of.areas){
+
+  control.jacknife<-0	
+  if(h==1){
+  	 
+	y.jacknife.a<-Z.a[2:number.of.areas, counter.i]
+   	x.jacknife<-covariate.matrix[2:number.of.areas, ]
+    true.sample.variance.a.jacknife<-true.sample.variance.a[2:number.of.areas]
+   
+  }
+	
+	if(h>1 && h<number.of.areas){
+		
+        y.jacknife.a<-Z.a[c(1:(h-1), (h+1):number.of.areas), counter.i]
+        x.jacknife<-covariate.matrix[c(1:(h-1), (h+1):number.of.areas), ]
+        true.sample.variance.a.jacknife<-true.sample.variance.a[c(1:(h-1), (h+1):number.of.areas)]
+
+		
+	}
+	
+	if(h==number.of.areas){
+		 
+        y.jacknife.a<-Z.a[1:(number.of.areas-1), counter.i]
+	    x.jacknife<-covariate.matrix[1:(number.of.areas-1), ]
+        true.sample.variance.a.jacknife<-true.sample.variance.a[1:(number.of.areas-1)]
+
+				 
+	}
+
+    x.jacknife<-matrix(x.jacknife, nrow=number.of.areas-1, byrow=F)
+	
+	areas.jacknife<-number.of.areas-1
+
+    ### I have checked the code. area.variance has not been used in PR.estimated.area.variance.f. I just keep it because of the consistency!
+	
+	PR.estimator.a.jackknife<-PR.estimated.area.variance.f(x.jacknife, sample.variance=true.sample.variance.a.jacknife, area.variance=true.area.variance, response=y.jacknife.a)
+	
+	#######  Fay-Herriot Estimator
+	
+	FH.estimator.a.jackknife<-FH.estimated.area.variance.f(x.jacknife, sample.variance=true.sample.variance.a.jacknife, area.variance=PR.estimator.a.jackknife, response=y.jacknife.a, max.iter=1000)
+	
+	if(!(FH.estimator.a.jackknife==-1 )){
+
+
+    beta.boot.a.PR.jackknife<-beta.hat.area.variance(x.jacknife, sample.variance=true.sample.variance.a.jacknife, area.variance=PR.estimator.a.jackknife, response=y.jacknife.a)
+	
+	beta.boot.a.FH.jackknife<-beta.hat.area.variance(x.jacknife, sample.variance=true.sample.variance.a.jacknife, area.variance=FH.estimator.a.jackknife, response=y.jacknife.a)
+	
+	phi.boot.a.PR.jackknife<-Z.boot.a.PR.jackknife<-phi.boot.a.FH.jackknife<-Z.boot.a.FH.jackknife<-matrix(0, nrow=number.of.areas, ncol=B)
+
+	t.B.jackknife<-NULL
+	
+	for(l in 1:B.jackknife){
+		
+		for(j in 1: number.of.areas){
+			
+			mu.a.PR.jackknife<-covariate.matrix[j,] %*% beta.boot.a.PR.jackknife
+			
+			phi.boot.a.PR.jackknife[j, l]<-rnorm(1, mu.a.PR.jackknife, sqrt(PR.estimator.a.jackknife))
+			
+			Z.boot.a.PR.jackknife[j, l]<-rnorm(1, phi.boot.a.PR.jackknife[j, l], true.sample.sd.a[j])
+						
+			
+			
+			mu.a.FH.jackknife<-covariate.matrix[j,] %*% beta.boot.a.FH.jackknife
+						
+			phi.boot.a.FH.jackknife[j, l]<-rnorm(1, mu.a.FH.jackknife, sqrt(FH.estimator.a.jackknife))
+									
+			Z.boot.a.FH.jackknife[j, l]<-rnorm(1, phi.boot.a.FH.jackknife[j, l], true.sample.sd.a[j])
+						
+		}
+
+        ####  area.variance has not been used in the PR.estimated.area.variance.f. I just kept it for the consistency. 
+		
+		PR.estimator.boot.a.jackknife<-PR.estimated.area.variance.f(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=true.area.variance, response=Z.boot.a.FH.jackknife[, l])
+	
+	    bias.area.variance.bootstrap.a.PR.jackknife[l]<-PR.estimator.boot.a.jackknife-PR.estimator.a.jackknife
+
+		mse.area.variance.bootstrap.a.PR.jackknife[l]<-(PR.estimator.boot.a.jackknife-PR.estimator.a.jackknife)^2
+
+		        
+    
+    
+        FH.estimator.boot.a.jackknife<-FH.estimated.area.variance.f(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=true.area.variance, response=Z.boot.a.FH.jackknife[, l])
+	
+	    if(!(FH.estimator.boot.a.jackknife==-1 )){
+	    	
+	    
+	    
+	    bias.area.variance.bootstrap.a.FH.jackknife[l]<-FH.estimator.boot.a.jackknife-FH.estimator.a.jackknife
+
+		mse.area.variance.bootstrap.a.FH.jackknife[l]<-(FH.estimator.boot.a.jackknife-FH.estimator.a.jackknife)^2
+
+		t.B.jackknife<-c(t.B.jackknife, l)
+
+
+
+}
+
+}
+
+
+
+    bias.a.PR.jackknife<-mean(bias.area.variance.bootstrap.a.PR.jackknife[t.B.jackknife])
+    
+    mse.a.PR.jackknife<-mean(mse.area.variance.bootstrap.a.PR.jackknife[t.B.jackknife])
+    
+    bias.a.FH.jackknife<-mean(bias.area.variance.bootstrap.a.FH.jackknife[t.B.jackknife])
+    
+    mse.a.FH.jackknife<-mean(mse.area.variance.bootstrap.a.FH.jackknife[t.B.jackknife])
+
+    ####################################################################################
+	####   Finding the estimated value of the risk function (second order approximation)  JACKKNIFE METHOD
+	
+	second.order.unbiased.estimator.risk.a.PR.jackknife[, h]<-second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.PR.jackknife, mse.area.variance=mse.a.PR.jackknife)
+	
+	second.order.unbiased.estimator.risk.a.FH.jackknife[, h]<-second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.FH.jackknife, mse.area.variance=mse.a.FH.jackknife)
+	
+	constrained.second.order.unbiased.estimator.risk.a.PR.jackknife[, h]<-constrained.second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.PR.jackknife, mse.area.variance=mse.a.PR.jackknife, weight=w)
+	
+    constrained.second.order.unbiased.estimator.risk.a.FH.jackknife[, h]<-constrained.second.order.unbiased.estimator.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.FH.jackknife, mse.area.variance=mse.a.FH.jackknife, weight=w)
+	
+	
+	####################################################################################
+	####   Finding the estimated value of the risk function (g_1+g_2+g_3)     JACKKNIFE METHOD
+	
+	approximated.risk.a.PR.jackknife[, h]<-approximated.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.PR.jackknife, mse.area.variance=mse.a.PR.jackknife)
+	
+	approximated.risk.a.FH.jackknife[, h]<-approximated.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.FH.jackknife, mse.area.variance=mse.a.FH.jackknife)
+	
+	approximated.constrained.risk.a.PR.jackknife[, h]<-approximated.constrained.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.PR.jackknife, mse.area.variance=mse.a.PR.jackknife, weight=w)
+	
+	approximated.constrained.risk.a.FH.jackknife[, h]<-approximated.constrained.risk(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a.jackknife, response=Z.a[, counter.i], bias.area.variance=bias.a.FH.jackknife, mse.area.variance=mse.a.FH.jackknife, weight=w)
+	
+	}
+
+}
+
+
+j.s.b.PR.a<-rep(0,number.of.areas)
+j.s.c.b.PR.a<-rep(0,number.of.areas)
+j.a.b.PR.a<-rep(0,number.of.areas)
+j.a.c.b.PR.a<-rep(0,number.of.areas)
+
+j.s.b.FH.a<-rep(0,number.of.areas)
+j.s.c.b.FH.a<-rep(0,number.of.areas)
+j.a.b.FH.a<-rep(0,number.of.areas)
+j.a.c.b.FH.a<-rep(0,number.of.areas)
+
+
+unweighted.jacknife<-w
+
+
+for(h in 1: number.of.areas){
+
+	j.s.b.PR.a<-j.s.b.PR.a+unweighted.jacknife[h]*(second.order.unbiased.estimator.risk.a.PR.jackknife[, h]-second.order.unbiased.estimator.risk.a.PR[, counter.i])
+    
+    j.s.b.FH.a<-j.s.b.FH.a+unweighted.jacknife[h]*(second.order.unbiased.estimator.risk.a.FH.jackknife[, h]-second.order.unbiased.estimator.risk.a.FH[, counter.i])
+   
+    j.s.c.b.PR.a<-j.s.c.b.PR.a+unweighted.jacknife[h]*(constrained.second.order.unbiased.estimator.risk.a.PR.jackknife[, h]-constrained.second.order.unbiased.estimator.risk.a.PR[, counter.i])
+    
+    j.s.c.b.FH.a<-j.s.c.b.FH.a+unweighted.jacknife[h]*(constrained.second.order.unbiased.estimator.risk.a.FH.jackknife[, h]-constrained.second.order.unbiased.estimator.risk.a.FH[, counter.i])
+    
+   
+    j.a.b.PR.a<-j.a.b.PR.a+unweighted.jacknife[h]*(approximated.risk.a.PR.jackknife[, h]-approximated.risk.a.PR[, counter.i])
+    
+    j.a.b.FH.a<-j.a.b.FH.a+unweighted.jacknife[h]*(approximated.risk.a.FH.jackknife[, h]-approximated.risk.a.FH[, counter.i])
+   
+    j.a.c.b.PR.a<-j.a.c.b.PR.a+unweighted.jacknife[h]*(approximated.constrained.risk.a.PR.jackknife[, h]-approximated.constrained.risk.a.PR[, counter.i])
+    
+    j.a.c.b.FH.a<-j.a.c.b.FH.a+unweighted.jacknife[h]*(approximated.constrained.risk.a.FH.jackknife[, h]-approximated.constrained.risk.a.FH[, counter.i])
+    
+
+}
+
+
+    jackknife.unweighted.PR.s.o.a[, counter.i]<-second.order.unbiased.estimator.risk.a.PR[, counter.i]-j.s.b.PR.a
+
+    jackknife.unweighted.FH.s.o.a[, counter.i]<-second.order.unbiased.estimator.risk.a.FH[, counter.i]-j.s.b.FH.a
+
+
+    jackknife.unweighted.PR.s.o.c.a[, counter.i]<-constrained.second.order.unbiased.estimator.risk.a.PR[, counter.i]-j.s.c.b.PR.a
+
+    jackknife.unweighted.FH.s.o.c.a[, counter.i]<-constrained.second.order.unbiased.estimator.risk.a.FH[, counter.i]-j.s.c.b.FH.a
+
+    
+    jackknife.unweighted.PR.a.a[, counter.i]<-approximated.risk.a.PR[, counter.i]-j.a.b.PR.a
+
+    jackknife.unweighted.FH.a.a[, counter.i]<-approximated.risk.a.FH[, counter.i]-j.a.b.FH.a
+
+
+    jackknife.unweighted.PR.a.c.a[, counter.i]<-approximated.constrained.risk.a.PR[, counter.i]-j.a.c.b.PR.a
+
+    jackknife.unweighted.FH.a.c.a[, counter.i]<-approximated.constrained.risk.a.FH[, counter.i]-j.a.c.b.FH.a
+
+    risk.response.FH.estimation[, counter.i]<-estimated.risk.response(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=FH.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.FH, mse.area.variance=mse.a.FH, weight=w)
+
+
+    risk.response.PR.estimation[, counter.i]<-estimated.risk.response(covariate.matrix, sample.variance=true.sample.variance.a, area.variance=PR.estimator.a[counter.i], response=Z.a[, counter.i], bias.area.variance=bias.a.PR, mse.area.variance=mse.a.PR, weight=w)
+
+
+
+t<-c(t, counter.i)
+
+	
+}
+
+
+counter.i<-counter.i+1
+
+}
+
+
+save(list = ls(all=TRUE), file = \".RData\")
+
+
+avearge.jackknife.unweighted.PR.s.o.a<-avearge.jackknife.unweighted.FH.s.o.a<-average.jackknife.unweighted.PR.s.o.c.a<-average.jackknife.unweighted.FH.s.o.c.a<-average.jackknife.unweighted.PR.a.a<-average.jackknife.unweighted.FH.a.a<-average.jackknife.unweighted.PR.a.c.a<-average.jackknife.unweighted.FH.a.c.a<-NULL
+
+
+for(j in 1: number.of.areas){
+
+    avearge.jackknife.unweighted.PR.s.o.a[j]<-mean(jackknife.unweighted.PR.s.o.a[j, t])
+
+    avearge.jackknife.unweighted.FH.s.o.a[j]<-mean(jackknife.unweighted.FH.s.o.a[j, t])
+
+  
+    average.jackknife.unweighted.PR.s.o.c.a[j]<-mean(jackknife.unweighted.PR.s.o.c.a[j, t])
+ 
+    average.jackknife.unweighted.FH.s.o.c.a[j]<-mean(jackknife.unweighted.FH.s.o.c.a[j, t])
+
+   
+    average.jackknife.unweighted.PR.a.a[j]<-mean(jackknife.unweighted.PR.a.a[j, t])
+
+    average.jackknife.unweighted.FH.a.a[j]<-mean(jackknife.unweighted.FH.a.a[j, t])
+
+
+    average.jackknife.unweighted.PR.a.c.a[j]<-mean(jackknife.unweighted.PR.a.c.a[j, t])
+
+    average.jackknife.unweighted.FH.a.c.a[j]<-mean(jackknife.unweighted.FH.a.c.a[j, t])
+
+	
+	risk.of.response.a.PR[j]<-mean(loss.of.response.a.PR[j, t])
+   
+    risk.of.theta.a.PR[j]<-mean(loss.of.theta.a.PR[j, t])
+
+    average.second.order.unbiased.estimator.risk.a.PR[j]<-mean(second.order.unbiased.estimator.risk.a.PR[j, t])
+    
+    average.approximated.risk.a.PR[j]<-mean(approximated.risk.a.PR[j, t])
+	
+	average.constrained.second.order.unbiased.estimator.risk.a.PR[j]<-mean(constrained.second.order.unbiased.estimator.risk.a.PR[j, t])
+    
+    average.constrained.approximated.risk.a.PR[j]<-mean(approximated.constrained.risk.a.PR[j, t])
+	
+
+	
+}
+
+risk.PR<-c(risk.of.response.a.PR, risk.of.theta.a.PR, average.second.order.unbiased.estimator.risk.a.PR, average.constrained.second.order.unbiased.estimator.risk.a.PR, average.approximated.risk.a.PR, average.constrained.approximated.risk.a.PR)
+
+
+Risk.PR<-matrix(risk.PR, nrow= number.of.areas, ncol=6, byrow=F)
+
+xtable(Risk.PR)
+
+
+jacknife.risk.PR<-c(avearge.jackknife.unweighted.PR.s.o.a, average.jackknife.unweighted.PR.s.o.c.a,  average.jackknife.unweighted.PR.a.a, average.jackknife.unweighted.PR.a.c.a)
+
+jacknife.PR<-matrix(jacknife.risk.PR, nrow= number.of.areas, ncol=4, byrow=F)
+
+xtable(jacknife.PR)
+
+
+
+
+for(j in 1: number.of.areas){
+	
+	risk.of.response.a.FH[j]<-mean(loss.of.response.a.FH[j, t])
+    
+    risk.of.theta.a.FH[j]<-mean(loss.of.theta.a.FH[j, t])
+    
+    average.second.order.unbiased.estimator.risk.a.FH[j]<-mean(second.order.unbiased.estimator.risk.a.FH[j, t])
+    
+    average.approximated.risk.a.FH[j]<-mean(approximated.risk.a.FH[j, t])
+		
+	average.constrained.second.order.unbiased.estimator.risk.a.FH[j]<-mean(constrained.second.order.unbiased.estimator.risk.a.FH[j, t])
+    
+    average.constrained.approximated.risk.a.FH[j]<-mean(approximated.constrained.risk.a.FH[j, t])
+		
+}
+
+risk.FH<-c(risk.of.response.a.FH, risk.of.theta.a.FH, average.second.order.unbiased.estimator.risk.a.FH, average.constrained.second.order.unbiased.estimator.risk.a.FH, average.approximated.risk.a.FH, average.constrained.approximated.risk.a.FH)
+
+Risk.FH<-matrix(risk.FH, nrow= number.of.areas, ncol=6, byrow=F)
+
+xtable(Risk.FH)
+
+
+
+
+jacknife.risk.FH<-c(avearge.jackknife.unweighted.FH.s.o.a, average.jackknife.unweighted.FH.s.o.c.a,  average.jackknife.unweighted.FH.a.a, average.jackknife.unweighted.FH.a.c.a)
+
+jacknife.FH<-matrix(jacknife.risk.FH, nrow= number.of.areas, ncol=4, byrow=F)
+
+xtable(jacknife.FH)
+
+
+
+
+
+
+print(\"count of non-convergent\")
+
+print(count)
+
+
+
+
+ 
+    
+
+
+
+
+
+   
+
+
+save(list = ls(all=TRUE), file = \".RData\")
+
+date()         
+                    ",sep=""))
+
+
+
+
+
+sink()
+
+
+
+}
+
+warnings()  
+    
